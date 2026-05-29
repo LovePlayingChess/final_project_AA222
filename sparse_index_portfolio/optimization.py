@@ -20,7 +20,11 @@ def portfolio_variance(weights: np.ndarray, covariance: np.ndarray) -> float:
     return float(weights @ covariance @ weights)
 
 
-def solve_min_variance(covariance: pd.DataFrame, l2_reg: float = 1e-8) -> OptimizationResult:
+def solve_min_variance(
+    covariance: pd.DataFrame,
+    l2_reg: float = 1e-8,
+    max_weight: float = 0.05,
+) -> OptimizationResult:
     tickers = list(covariance.columns)
     n_assets = len(tickers)
     cov = covariance.to_numpy()
@@ -29,7 +33,7 @@ def solve_min_variance(covariance: pd.DataFrame, l2_reg: float = 1e-8) -> Optimi
         return portfolio_variance(weights, cov) + l2_reg * float(weights @ weights)
 
     constraints = [{"type": "eq", "fun": lambda weights: np.sum(weights) - 1.0}]
-    bounds = [(0.0, 1.0)] * n_assets
+    bounds = [(0.0, max_weight)] * n_assets
     x0 = np.full(n_assets, 1.0 / n_assets)
     solution = minimize(
         objective,
@@ -42,7 +46,7 @@ def solve_min_variance(covariance: pd.DataFrame, l2_reg: float = 1e-8) -> Optimi
     if not solution.success:
         raise RuntimeError(f"Min-variance optimization failed: {solution.message}")
 
-    weights = np.clip(solution.x, 0.0, 1.0)
+    weights = np.clip(solution.x, 0.0, max_weight)
     weights /= weights.sum()
     variance = portfolio_variance(weights, cov)
     return OptimizationResult(
@@ -60,13 +64,18 @@ def solve_max_return_under_risk(
     target_volatility: float,
     l2_reg: float = 1e-6,
     initial_weights: pd.Series | None = None,
+    max_weight: float = 0.05,
 ) -> OptimizationResult:
     tickers = list(mu.index)
     n_assets = len(tickers)
     mu_vec = mu.to_numpy()
     cov = covariance.loc[tickers, tickers].to_numpy()
 
-    min_var_result = solve_min_variance(covariance=covariance, l2_reg=l2_reg)
+    min_var_result = solve_min_variance(
+        covariance=covariance,
+        l2_reg=l2_reg,
+        max_weight=max_weight,
+    )
     if min_var_result.realized_volatility > target_volatility + 1e-10:
         min_var_result.objective_value = float(mu_vec @ min_var_result.weights.to_numpy())
         min_var_result.status = "Infeasible target volatility; returned minimum-variance portfolio."
@@ -83,7 +92,7 @@ def solve_max_return_under_risk(
             "fun": lambda weights: target_volatility**2 - portfolio_variance(weights, cov),
         },
     ]
-    bounds = [(0.0, 1.0)] * n_assets
+    bounds = [(0.0, max_weight)] * n_assets
     x0 = np.full(n_assets, 1.0 / n_assets)
     if initial_weights is not None:
         aligned = initial_weights.reindex(tickers).fillna(0.0).to_numpy()
@@ -101,7 +110,7 @@ def solve_max_return_under_risk(
     if not solution.success:
         raise RuntimeError(f"Risk-constrained optimization failed: {solution.message}")
 
-    weights = np.clip(solution.x, 0.0, 1.0)
+    weights = np.clip(solution.x, 0.0, max_weight)
     weights /= weights.sum()
     variance = portfolio_variance(weights, cov)
     return OptimizationResult(
@@ -120,6 +129,7 @@ def solve_sparse_portfolio(
     support_size: int,
     l2_reg: float = 1e-6,
     initial_weights: pd.Series | None = None,
+    max_weight: float = 0.05,
 ) -> tuple[OptimizationResult, OptimizationResult]:
     dense_result = solve_max_return_under_risk(
         mu=mu,
@@ -127,6 +137,7 @@ def solve_sparse_portfolio(
         target_volatility=target_volatility,
         l2_reg=l2_reg,
         initial_weights=initial_weights,
+        max_weight=max_weight,
     )
     if support_size >= len(mu):
         return dense_result, dense_result
@@ -138,6 +149,7 @@ def solve_sparse_portfolio(
         target_volatility=target_volatility,
         l2_reg=l2_reg,
         initial_weights=dense_result.weights.loc[support],
+        max_weight=max_weight,
     )
     full_sparse = pd.Series(0.0, index=mu.index)
     full_sparse.loc[support] = sparse_result.weights

@@ -55,6 +55,7 @@ def download_prices(
     import yfinance as yf
 
     all_tickers = sorted(set(tickers))
+    print(f"Downloading {len(all_tickers)} tickers...")
     data = yf.download(
         tickers=all_tickers,
         start=start_date,
@@ -64,6 +65,7 @@ def download_prices(
         threads=True,
         group_by="column",
     )
+    print("Download complete.")
     if data.empty:
         raise RuntimeError("Yahoo Finance returned an empty dataset.")
 

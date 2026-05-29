@@ -57,7 +57,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--support-sizes",
-        default="30,50,100,250",
+        default="20,30,50,100,150",
         help="Comma-separated cardinalities k.",
     )
     parser.add_argument(

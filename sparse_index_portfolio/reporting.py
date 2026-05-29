@@ -83,7 +83,30 @@ def write_sharpe_heatmap(metrics: pd.DataFrame, output_path: Path) -> None:
     plt.savefig(output_path, dpi=160)
     plt.close()
 
+def write_sparsity_performance_plot(metrics: pd.DataFrame, output_path: Path) -> None:
+    if metrics.empty:
+        return
 
+    plt.figure(figsize=(8.5, 5.5))
+
+    for vol_multiplier, group in metrics.groupby("vol_multiplier"):
+        group = group.sort_values("support_size")
+        plt.plot(
+            group["support_size"],
+            group["sharpe"],
+            marker="o",
+            linewidth=2,
+            label=f"vol={vol_multiplier:.2f}",
+        )
+
+    plt.xlabel("Support size k")
+    plt.ylabel("Sharpe ratio")
+    plt.title("Sparsity vs Performance")
+    plt.legend(title="Volatility target")
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=160)
+    plt.close()
 def write_risk_return_scatter(
     metrics: pd.DataFrame,
     benchmark_metrics: pd.DataFrame,
@@ -312,6 +335,10 @@ def write_report(
         output_path=output_dir / "equity_curves.png",
     )
     write_sharpe_heatmap(metrics=results.metrics, output_path=output_dir / "sharpe_heatmap.png")
+    write_sparsity_performance_plot(
+        metrics=results.metrics,
+        output_path=output_dir / "sparsity_vs_performance.png",
+    )
     write_risk_return_scatter(
         metrics=results.metrics,
         benchmark_metrics=results.benchmark_metrics,
