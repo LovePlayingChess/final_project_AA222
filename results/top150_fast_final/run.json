@@ -1,0 +1,30 @@
+{
+  "config": {
+    "start_date": "2010-01-01",
+    "end_date": null,
+    "benchmark": "SPY",
+    "rebalance_frequency": "M",
+    "lookback_days": 504,
+    "min_history_days": 126,
+    "ewma_half_life": 63.0,
+    "top_components": 15,
+    "support_sizes": [
+      20
+    ],
+    "vol_multipliers": [
+      1.0
+    ],
+    "max_weight": 1.0,
+    "dense_l2_reg": 1e-06
+  },
+  "notes": {
+    "benchmark": "SPY",
+    "n_assets": 150,
+    "n_strategies": 1,
+    "data_start": "2010-01-04",
+    "data_end": "2026-05-29",
+    "returns_start": "2010-08-02",
+    "returns_end": "2026-05-29",
+    "survivorship_bias_note": "Uses current S&P 500 constituents from Wikipedia filtered to names with full-period price coverage in Yahoo Finance. This avoids delisting plumbing but introduces survivorship bias."
+  }
+}

@@ -66,6 +66,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Comma-separated multipliers on trailing benchmark volatility.",
     )
     parser.add_argument(
+        "--max-weight",
+        type=float,
+        default=0.10,
+        help="Maximum allowed portfolio weight in any single asset.",
+    )
+    parser.add_argument(
         "--dense-l2-reg",
         type=float,
         default=1e-6,
@@ -141,6 +147,7 @@ def main() -> int:
         top_components=args.top_components,
         support_sizes=parse_int_list(args.support_sizes),
         vol_multipliers=parse_float_list(args.vol_multipliers),
+        max_weight=args.max_weight,
         dense_l2_reg=args.dense_l2_reg,
     )
     results = run_backtest_sweep(prices=prices, config=backtest_config)

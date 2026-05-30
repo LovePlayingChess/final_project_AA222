@@ -264,6 +264,7 @@ def write_metadata(metadata: dict[str, object], config: BacktestConfig, output_p
             "top_components": config.top_components,
             "support_sizes": config.support_sizes,
             "vol_multipliers": config.vol_multipliers,
+            "max_weight": config.max_weight,
             "dense_l2_reg": config.dense_l2_reg,
         },
         "notes": metadata,

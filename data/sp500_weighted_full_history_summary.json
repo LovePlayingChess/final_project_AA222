@@ -1,0 +1,8 @@
+{
+  "start_date": "2010-01-04",
+  "end_date": "2026-05-29",
+  "benchmark": "SPY",
+  "current_constituents_with_weights": 503,
+  "full_history_current_constituents": 422,
+  "coverage_path": "data/sp500_current_weighted_coverage_2010_full_history.csv"
+}

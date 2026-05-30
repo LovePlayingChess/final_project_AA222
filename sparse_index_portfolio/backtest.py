@@ -27,6 +27,7 @@ class BacktestConfig:
     top_components: int
     support_sizes: list[int]
     vol_multipliers: list[float]
+    max_weight: float = 0.10
     dense_l2_reg: float = 1e-6
 
 
@@ -48,6 +49,14 @@ class RebalanceInputs:
     mu: pd.Series
     covariance: pd.DataFrame
     benchmark_volatility: float
+
+
+def render_progress(current: int, total: int, label: str) -> None:
+    width = 30
+    filled = 0 if total <= 0 else int(width * current / total)
+    bar = "#" * filled + "-" * (width - filled)
+    percent = 0.0 if total <= 0 else 100.0 * current / total
+    print(f"\r[{bar}] {current}/{total} ({percent:5.1f}%) {label}", end="", flush=True)
 
 
 def compute_rebalance_dates(index: pd.DatetimeIndex, frequency: str) -> pd.DatetimeIndex:
@@ -86,6 +95,13 @@ def run_backtest_sweep(prices: pd.DataFrame, config: BacktestConfig) -> SweepRes
     prices.columns = [col.upper() for col in prices.columns]
     if benchmark not in prices.columns:
         raise RuntimeError(f"Benchmark {benchmark} is missing from the price table.")
+
+    for support_size in config.support_sizes:
+        if support_size * config.max_weight < 1.0 - 1e-12:
+            raise ValueError(
+                f"Infeasible configuration: support_size={support_size} with "
+                f"max_weight={config.max_weight:.6f} cannot sum to 1.0."
+            )
 
     returns = prices.pct_change().dropna(how="all")
     benchmark_returns = returns[benchmark].dropna()
@@ -137,6 +153,9 @@ def run_backtest_sweep(prices: pd.DataFrame, config: BacktestConfig) -> SweepRes
     if not rebalance_inputs:
         raise RuntimeError("No rebalance dates met the minimum-history requirement.")
 
+    total_tasks = len(config.support_sizes) * len(config.vol_multipliers) * len(rebalance_inputs)
+    completed_tasks = 0
+
     for support_size in config.support_sizes:
         for vol_multiplier in config.vol_multipliers:
             label = f"k={support_size}|vol={vol_multiplier:.2f}"
@@ -154,6 +173,13 @@ def run_backtest_sweep(prices: pd.DataFrame, config: BacktestConfig) -> SweepRes
                     support_size=min(support_size, len(inputs.mu)),
                     l2_reg=config.dense_l2_reg,
                     initial_weights=previous_sparse_weights,
+                    max_weight=config.max_weight,
+                )
+                completed_tasks += 1
+                render_progress(
+                    completed_tasks,
+                    total_tasks,
+                    f"{label} @ {inputs.rebalance_date.date()}",
                 )
 
                 previous_sparse_weights = sparse_result.weights.copy()
@@ -219,6 +245,9 @@ def run_backtest_sweep(prices: pd.DataFrame, config: BacktestConfig) -> SweepRes
 
     if not strategy_returns:
         raise RuntimeError("No strategies were produced. Try relaxing the filters.")
+
+    if total_tasks > 0:
+        print()
 
     daily_returns = pd.DataFrame(strategy_returns).sort_index()
     daily_returns[benchmark] = benchmark_returns.reindex(daily_returns.index).fillna(0.0)
