@@ -57,7 +57,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--support-sizes",
-        default="20,30,50,100,150",
+        default="5,10,15,20,30",
         help="Comma-separated cardinalities k.",
     )
     parser.add_argument(
@@ -68,7 +68,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--max-weight",
         type=float,
-        default=0.10,
+        default=1,
         help="Maximum allowed portfolio weight in any single asset.",
     )
     parser.add_argument(

@@ -8,14 +8,14 @@
 - Minimum history filter is enforced before an asset can enter the tradeable universe on a rebalance date.
 
 ## Data Audit
-- Universe size including benchmark: `61`
+- Universe size including benchmark: `151`
 - Benchmark ticker: `SPY`
-- Non-benchmark assets: `60`
+- Non-benchmark assets: `150`
 - Max missing observations for any retained ticker: `0`
 - Data source is Yahoo Finance adjusted prices on a fixed current-constituent universe; this is valid for prototyping but still carries survivorship bias.
 
 ## Optimization Soundness
 - Long-only, fully invested, volatility-constrained optimization is solved at each rebalance.
-- Dense infeasible rebalance count: `348`
-- Sparse infeasible rebalance count: `348`
+- Dense infeasible rebalance count: `100`
+- Sparse infeasible rebalance count: `196`
 - If a requested volatility target is below the minimum-variance portfolio, the code returns the minimum-variance portfolio and records the rebalance as infeasible.

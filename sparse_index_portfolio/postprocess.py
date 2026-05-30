@@ -135,11 +135,20 @@ def write_average_allocations(
 
     plt.figure(figsize=(11, 6.5))
     image = plt.imshow(heatmap.to_numpy(), aspect="auto", cmap="YlOrRd")
-    plt.colorbar(image, label="Average portfolio weight")
+    colorbar = plt.colorbar(image, label="Average portfolio weight")
+    colorbar.ax.text(
+        0.5,
+        -0.08,
+        "Average across rebalances;\n0 when not held",
+        ha="center",
+        va="top",
+        fontsize=8,
+        transform=colorbar.ax.transAxes,
+    )
     plt.xticks(range(len(heatmap.columns)), heatmap.columns, rotation=45, ha="right")
     plt.yticks(range(len(heatmap.index)), heatmap.index)
     plt.title("Average Allocations by k")
-    plt.tight_layout()
+    plt.tight_layout(rect=(0, 0, 0.96, 1))
     plt.savefig(output_path, dpi=180)
     plt.close()
     return avg_weights

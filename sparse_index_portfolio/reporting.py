@@ -14,6 +14,10 @@ import pandas as pd
 
 from sparse_index_portfolio.backtest import BacktestConfig, SweepResults
 
+def get_benchmark_name_and_sharpe(benchmark_metrics: pd.DataFrame) -> tuple[str, float]:
+    benchmark_name = str(benchmark_metrics.index[0])
+    benchmark_sharpe = float(benchmark_metrics.iloc[0]["sharpe"])
+    return benchmark_name, benchmark_sharpe
 
 def select_comparison_strategies(
     metrics: pd.DataFrame,
@@ -60,7 +64,11 @@ def write_equity_curve_plot(
     plt.close()
 
 
-def write_sharpe_heatmap(metrics: pd.DataFrame, output_path: Path) -> None:
+def write_sharpe_heatmap(
+    metrics: pd.DataFrame,
+    benchmark_metrics: pd.DataFrame,
+    output_path: Path,
+) -> None:
     pivot = metrics.pivot(
         index="support_size", columns="vol_multiplier", values="sharpe"
     ).sort_index()
@@ -74,7 +82,8 @@ def write_sharpe_heatmap(metrics: pd.DataFrame, output_path: Path) -> None:
     plt.yticks(range(len(pivot.index)), [str(idx) for idx in pivot.index])
     plt.xlabel("Volatility multiplier")
     plt.ylabel("Support size k")
-    plt.title("Sharpe Ratio Sweep")
+    benchmark_name, benchmark_sharpe = get_benchmark_name_and_sharpe(benchmark_metrics)
+    plt.title(f"Sharpe Ratio Sweep\n{benchmark_name} Sharpe = {benchmark_sharpe:.3f}")
     for row_idx, support in enumerate(pivot.index):
         for col_idx, vol in enumerate(pivot.columns):
             value = pivot.loc[support, vol]
@@ -83,7 +92,11 @@ def write_sharpe_heatmap(metrics: pd.DataFrame, output_path: Path) -> None:
     plt.savefig(output_path, dpi=160)
     plt.close()
 
-def write_sparsity_performance_plot(metrics: pd.DataFrame, output_path: Path) -> None:
+def write_sparsity_performance_plot(
+    metrics: pd.DataFrame,
+    benchmark_metrics: pd.DataFrame,
+    output_path: Path,
+) -> None:
     if metrics.empty:
         return
 
@@ -98,10 +111,16 @@ def write_sparsity_performance_plot(metrics: pd.DataFrame, output_path: Path) ->
             linewidth=2,
             label=f"vol={vol_multiplier:.2f}",
         )
-
+    benchmark_name, benchmark_sharpe = get_benchmark_name_and_sharpe(benchmark_metrics)
+    plt.axhline(
+        benchmark_sharpe,
+        linestyle="--",
+        linewidth=1.8,
+        label=f"{benchmark_name} Sharpe = {benchmark_sharpe:.3f}",
+    )
     plt.xlabel("Support size k")
     plt.ylabel("Sharpe ratio")
-    plt.title("Sparsity vs Performance")
+    plt.title("Sparsity vs Performance Relative to Benchmark")
     plt.legend(title="Volatility target")
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
@@ -201,11 +220,20 @@ def write_average_weight_heatmap(
 
     plt.figure(figsize=(11, 6.5))
     image = plt.imshow(pivot.to_numpy(), aspect="auto", cmap="YlOrRd")
-    plt.colorbar(image, label="Average portfolio weight")
+    colorbar = plt.colorbar(image, label="Average portfolio weight")
+    colorbar.ax.text(
+        0.5,
+        -0.08,
+        "Average across rebalances;\n0 when not held",
+        ha="center",
+        va="top",
+        fontsize=8,
+        transform=colorbar.ax.transAxes,
+    )
     plt.xticks(range(len(pivot.columns)), pivot.columns, rotation=45, ha="right")
     plt.yticks(range(len(pivot.index)), pivot.index)
     plt.title("Average Allocations by Strategy")
-    plt.tight_layout()
+    plt.tight_layout(rect=(0, 0, 0.96, 1))
     plt.savefig(output_path, dpi=160)
     plt.close()
 
@@ -309,6 +337,36 @@ def write_validation_report(
     ]
     output_path.write_text("\n".join(lines))
 
+def write_benchmark_comparison_table(
+    metrics: pd.DataFrame,
+    benchmark_metrics: pd.DataFrame,
+    output_path: Path,
+) -> pd.DataFrame:
+    best = metrics.sort_values("sharpe", ascending=False).iloc[0]
+    benchmark = benchmark_metrics.iloc[0]
+    benchmark_name = str(benchmark_metrics.index[0])
+
+    table = pd.DataFrame(
+        [
+            {
+                "portfolio": benchmark_name,
+                "annual_return": benchmark["annual_return"],
+                "annual_volatility": benchmark["annual_volatility"],
+                "sharpe": benchmark["sharpe"],
+                "max_drawdown": benchmark["max_drawdown"],
+            },
+            {
+                "portfolio": f"Best optimized ({best['strategy']})",
+                "annual_return": best["annual_return"],
+                "annual_volatility": best["annual_volatility"],
+                "sharpe": best["sharpe"],
+                "max_drawdown": best["max_drawdown"],
+            },
+        ]
+    )
+
+    table.to_csv(output_path, index=False)
+    return table
 
 def write_report(
     results: SweepResults,
@@ -335,9 +393,14 @@ def write_report(
         benchmark=benchmark,
         output_path=output_dir / "equity_curves.png",
     )
-    write_sharpe_heatmap(metrics=results.metrics, output_path=output_dir / "sharpe_heatmap.png")
+    write_sharpe_heatmap(
+        metrics=results.metrics,
+        benchmark_metrics=results.benchmark_metrics,
+        output_path=output_dir / "sharpe_heatmap.png",
+    )
     write_sparsity_performance_plot(
         metrics=results.metrics,
+        benchmark_metrics=results.benchmark_metrics,
         output_path=output_dir / "sparsity_vs_performance.png",
     )
     write_risk_return_scatter(
@@ -368,3 +431,12 @@ def write_report(
         data_audit=data_audit,
         output_path=output_dir / "validation_report.md",
     )
+
+    comparison_table = write_benchmark_comparison_table(
+        metrics=results.metrics,
+        benchmark_metrics=results.benchmark_metrics,
+        output_path=output_dir / "benchmark_comparison.csv",
+    )
+
+    print("\nBenchmark comparison:")
+    print(comparison_table.to_string(index=False, float_format=lambda x: f"{x:.4f}"))
